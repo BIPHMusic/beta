@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word/Definition Sorter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #fileInput {
+            margin-bottom: 20px;
+        }
+        #wordList {
+            list-style-type: none;
+            padding: 0;
+        }
+        #wordList li {
+            background-color: #f9f9f9;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        #unitContainer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .unit {
+            flex: 1;
+            min-width: 200px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 3px;
+            background-color: #fff;
+        }
+        .unit h3 {
+            margin-top: 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Word/Definition Sorter</h1>
+        <input type="file" id="fileInput" accept=".csv">
+        <ul id="wordList"></ul>
+        <div id="unitContainer"></div>
+        <button id="addUnitBtn">Add Unit</button>
+        <button id="downloadBtn" style="display: none;">Download Units</button>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const wordList = document.getElementById('wordList');
+        const unitContainer = document.getElementById('unitContainer');
+        const addUnitBtn = document.getElementById('addUnitBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let words = [];
+        let units = [];
+
+        fileInput.addEventListener('change', handleFileUpload);
+        addUnitBtn.addEventListener('click', addUnit);
+        downloadBtn.addEventListener('click', downloadUnits);
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const csv = e.target.result;
+                words = parseCSV(csv);
+                displayWords();
+                addUnit();
+                downloadBtn.style.display = 'inline-block';
+            };
+
+            reader.readAsText(file);
+        }
+
+        function parseCSV(csv) {
+            const lines = csv.split('\n');
+            return lines.map(line => {
+                const [word, definition] = line.split(',');
+                return { word: word.trim(), definition: definition.trim() };
+            }).filter(item => item.word && item.definition);
+        }
+
+        function displayWords() {
+            wordList.innerHTML = '';
+            words.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.textContent = `${item.word}: ${item.definition}`;
+                li.draggable = true;
+                li.dataset.index = index;
+                li.addEventListener('dragstart', drag);
+                wordList.appendChild(li);
+            });
+        }
+
+        function addUnit() {
+            const unit = document.createElement('div');
+            unit.className = 'unit';
+            unit.innerHTML = `
+                <h3>Unit ${units.length + 1}</h3>
+                <ul></ul>
+            `;
+            unit.addEventListener('dragover', allowDrop);
+            unit.addEventListener('drop', drop);
+            unitContainer.appendChild(unit);
+            units.push([]);
+        }
+
+        function drag(event) {
+            event.dataTransfer.setData('text/plain', event.target.dataset.index);
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function drop(event) {
+            event.preventDefault();
+            const index = event.dataTransfer.getData('text');
+            const wordItem = words[index];
+            const unitIndex = Array.from(unitContainer.children).indexOf(event.currentTarget);
+            
+            units[unitIndex].push(wordItem);
+            event.currentTarget.querySelector('ul').appendChild(event.target);
+        }
+
+        function downloadUnits() {
+            units.forEach((unit, index) => {
+                if (unit.length > 0) {
+                    const csv = unit.map(item => `${item.word},${item.definition}`).join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    if (navigator.msSaveBlob) {
+                        navigator.msSaveBlob(blob, `unit_${index + 1}.csv`);
+                    } else {
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `unit_${index + 1}.csv`;
+                        link.click();
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
